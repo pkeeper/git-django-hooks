@@ -1,0 +1,59 @@
+#!/usr/bin/env python
+# This script is made for lazy me, who tired of managing my local test DB
+# when trying out something that will alter it while developing a Django projects
+
+# This script copies a local SQLite DB file on checkouts, maintaining a copy
+# of a DB for each branch, therefore making it easy to get a working version of a DB
+# after drop of an experemental branch
+
+# this script can be used as a git hook, place it in .git/hooks directory
+# and name it "post-checkout", don't forget to set execution rights
+
+# requirements: pip install GitPython
+
+
+import os, shutil
+from git import *
+
+REPO_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__),"../../"))
+SQLITEDB_PATH = os.path.join(REPO_PATH, "lilia/database.sqlite")
+PREVBRANCH_PATH = os.path.join(REPO_PATH, ".prev_branch")
+
+repo = Repo(REPO_PATH)
+curbranch = str(repo.active_branch)
+
+
+
+def write_curbranch():
+	# Write current branch name to .prev_branch file
+	f = open(PREVBRANCH_PATH, "w")
+	try:
+		f.write(curbranch) # Write current branch by default
+		print "Writing current branch name to .prev_branch file"
+	finally:
+		f.close()
+
+
+# check if file exists
+if not os.path.exists(PREVBRANCH_PATH):
+	write_curbranch()
+
+try:
+	f = open(PREVBRANCH_PATH)
+	prevbranch = f.read()
+	f.close()
+	print "Previous branch: ", prevbranch
+except:
+	print "Something's went off when opening a file with previous branch name"
+	exit()
+
+prevbranch_db = ".".join((SQLITEDB_PATH, prevbranch.replace("/", "_")))
+curbranch_db =  ".".join((SQLITEDB_PATH, curbranch.replace("/", "_")))
+	
+if not prevbranch == curbranch:
+	print "Copying db from %s to %s" % (SQLITEDB_PATH, prevbranch_db)
+	shutil.copy(SQLITEDB_PATH, prevbranch_db)
+	if os.path.exists(curbranch_db):
+		print "Copying db from %s to %s" % (curbranch_db, SQLITEDB_PATH)
+		shutil.copy(curbranch_db, SQLITEDB_PATH) 
+	write_curbranch()
